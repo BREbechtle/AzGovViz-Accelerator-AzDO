@@ -1,0 +1,48 @@
+variables:
+- name: AutoUpdateAzGovViz
+  value: 'true'
+- name: AzGovVizRepoPath
+  value: 'https://github.com/Azure/Azure-Governance-Visualizer/archive/refs/heads/master.zip'
+- name: AzGovVizVersionPath
+  value: 'https://raw.githubusercontent.com/Azure/Azure-Governance-Visualizer/master/version.json'
+
+pool:
+  vmImage: 'ubuntu-22.04'
+
+resources:
+  pipelines:
+  - pipeline: syncAzGovViz
+    source: AzGovVizAccelerator-Pipeline
+    trigger: true
+
+steps:
+- checkout: self
+  clean: true
+  persistCredentials: true
+
+- script: |
+    git fetch --all
+    git branch -D `basename $(Build.SourceBranch)` || true
+    git switch `basename $(Build.SourceBranch)`
+
+- bash: |
+    currentVersion=$(jq -r .AzGovVizVersion version.json)
+    upStreamVersion=$(curl $(AzGovVizVersionPath) | jq -r '.ProductVersion')
+    if [ $currentVersion != $upStreamVersion ]
+    then
+      wget $(AzGovVizRepoPath)
+      unzip master.zip
+      cp -r Azure-Governance-Visualizer-master/pwsh .
+      cp -r Azure-Governance-Visualizer-master/img .
+      rm ./master.zip
+      rm -rf Azure-Governance-Visualizer-master/
+      jq '.AzGovVizVersion = "'$upStreamVersion'"' version.json > tmp.json && mv tmp.json version.json
+      git config --global user.email "AzureGovernanceVisualizerPipelines@doPipelines.com"
+      git config --global user.name "azgvz"
+      git config pull.rebase false
+      git add --all
+      git commit -m "AzureGovernanceVisualizer Pipeline to fetch latest upstream AzGovViz"
+      git push
+    else
+      echo "You are on the latest AzGovViz version"
+    fi
