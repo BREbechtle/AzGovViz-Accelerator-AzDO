@@ -1,0 +1,21 @@
+---
+name: DeployAzGovVizAccelerator
+trigger: none
+pr: none
+variables:
+- group: azgovviz-vars
+jobs:
+- job: AzureGovernanceVisualizer
+  pool: 
+    vmImage: 'ubuntu-latest'
+  steps:
+  - checkout: self
+  - task: AzureResourceManagerTemplateDeployment@3
+    inputs:
+        azureResourceManagerConnection: $(AZGOVVIZ_APP_NAME)
+        subscriptionId: $(SUBSCRIPTION_ID)
+        resourceGroupName: $(RESOURCE_GROUP_NAME)
+        location: West Europe
+        csmFile: ./bicep/webApp.bicep
+        csmParametersFile: ./bicep/webApp.parameters.json
+        overrideParameters: -webAppName $(WEB_APP_NAME) -managementGroupId $(MANAGEMENT_GROUP_ID) -clientId $(AAD_CLIENT_ID) -clientSecret $(AAD_CLIENT_SECRET)
